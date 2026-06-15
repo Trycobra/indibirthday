@@ -689,6 +689,22 @@ const styles = `
   position: absolute; left: calc(5% + 126px); bottom: 15%; z-index: 4;
 }
 
+/* ── Store sign ── */
+.plg-sign {
+  position: absolute; left: 1%; top: 11%;
+  background: #4d2e12;
+  border-left: 4px solid #2a1508; border-right: 4px solid #2a1508;
+  border-top: 7px solid #3d2409; border-bottom: 7px solid #2a1508;
+  padding: 4px 10px; z-index: 3;
+  box-shadow: 3px 3px 0 #1a0a02;
+  pointer-events: none;
+}
+.plg-sign-text {
+  font-family: 'VT323', monospace; font-size: 16px; line-height: 1.3;
+  color: #fdf3cf; text-align: center; white-space: nowrap;
+  text-shadow: 1px 1px 0 #2a1508; letter-spacing: 1px; display: block;
+}
+
 /* ── Decor placement (classes so phones can shrink/hide them) ── */
 .plg-surfA { position: absolute; right: 1%; bottom: 4%; transform: rotate(8deg); z-index: 4; }
 .plg-surfB { position: absolute; right: 13%; bottom: 2%; transform: rotate(-7deg); z-index: 3; }
@@ -1190,6 +1206,10 @@ export default function PinkLilyThriftShop() {
 
       {/* ── Shop scene ── */}
       <div className="plg-wall" />
+      <div className="plg-sign">
+        <span className="plg-sign-text">* FAMILIARITY *</span>
+        <span className="plg-sign-text">THRIFT STORE</span>
+      </div>
       <div className="plg-floor" />
       <Shelf />
       <Decor />
