@@ -448,6 +448,7 @@ const styles = `
   font-family: 'Press Start 2P', monospace;
   user-select: none; -webkit-tap-highlight-color: transparent;
   image-rendering: pixelated;
+  transform: translateZ(0); /* promote entire scene to its own GPU layer */
 }
 
 /* ── Shop scene ── */
@@ -503,6 +504,7 @@ const styles = `
   transform: translate(-50%, 105%);
   transition: transform 1.1s steps(7);
   z-index: 2; cursor: pointer; border: none; background: none; padding: 0;
+  will-change: transform;
 }
 .plg-dragon.plg-up { transform: translate(-50%, 18%); }
 
@@ -548,6 +550,7 @@ const styles = `
 .plg-spark {
   position: absolute; width: 6px; height: 6px; background: #ffd75e;
   animation: plg-spark .5s steps(4) forwards; pointer-events: none; z-index: 8;
+  will-change: transform;
 }
 @keyframes plg-spark {
   from { transform: translate(0,0) scale(1); opacity: 1; }
@@ -560,6 +563,7 @@ const styles = `
   border: none; background: none; padding: 6px; /* generous tap target */
   cursor: pointer;
   animation: plg-fall var(--fd, 2.6s) ease-in forwards;
+  will-change: transform;
 }
 @keyframes plg-fall {
   0%   { transform: translate(0, 0) rotate(0deg); }
@@ -674,6 +678,7 @@ const styles = `
   background: #b9b9c4; opacity: 0;
   animation: plg-smoke 2.6s steps(6) infinite;
   animation-delay: var(--sd, 0s);
+  will-change: transform;
 }
 @keyframes plg-smoke {
   0%   { transform: translate(0, 0); opacity: .85; }
@@ -725,6 +730,7 @@ const styles = `
   pointer-events: none;
   animation-name: plg-confettifall; animation-timing-function: linear;
   animation-iteration-count: infinite;
+  will-change: transform;
 }
 @keyframes plg-confettifall {
   0%   { transform: translate(0, -4vh) rotate(0deg); }
@@ -739,6 +745,7 @@ const styles = `
   .plg-pileB { display: none; }
   .plg-me { transform: scale(.7); transform-origin: bottom left; bottom: 16%; left: 2%; }
   .plg-skate { transform: scale(.7); transform-origin: bottom left; left: calc(2% + 88px); bottom: 16%; }
+  .plg-smoke-extra { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1117,10 +1124,12 @@ export default function PinkLilyThriftShop() {
   const [petals, setPetals] = useState([]);      // live petals on screen
   const [opened, setOpened] = useState(0);       // messages read
   const [card, setCard] = useState(null);        // message text | null
-  const [muted, setMuted] = useState(true);      // sound off by default
+  const [sfxMuted, setSfxMuted] = useState(false);  // sound effects: on by default
+  const [musicMuted, setMusicMuted] = useState(true); // music: off until toggled
   const spawnedRef = useRef(0);                  // total petals ever spawned
+  const lastFlowerTapRef = useRef(0);
   const beeper = useMemo(() => makeBeeper(), []);
-  useMusic(!muted); // ♪ button controls both sound effects and music
+  useMusic(!musicMuted);
 
   // Shuffle the message order once per visit, so every time she opens
   // the shop the petals fall in a different order.
@@ -1171,7 +1180,7 @@ export default function PinkLilyThriftShop() {
   const handleFlower = () => {
     if (phase !== "shop") return;
     if (stage < 3) {
-      if (!muted) beeper.tap();
+      if (!sfxMuted) beeper.tap();
       burst();
       setGrew(true);
       setTimeout(() => setGrew(false), 380);
@@ -1179,13 +1188,16 @@ export default function PinkLilyThriftShop() {
       setStage(next);
       if (next === 3) {
         // BLOOM! petals flutter down, staggered
-        if (!muted) beeper.bloom();
-        const first = Math.min(10, total);
+        if (!sfxMuted) beeper.bloom();
+        const first = Math.min(window.innerWidth <= 480 ? 4 : 10, total);
         for (let i = 0; i < first; i++) spawnPetal(700 + i * 450);
       }
     } else {
       // tapping the bloomed flower drops another petal if any remain
-      if (!muted) beeper.tap();
+      const now = Date.now();
+      if (now - lastFlowerTapRef.current < 250) return;
+      lastFlowerTapRef.current = now;
+      if (!sfxMuted) beeper.tap();
       burst();
       spawnPetal(150);
     }
@@ -1193,7 +1205,7 @@ export default function PinkLilyThriftShop() {
 
   /* — tapping a petal — */
   const handlePetal = (petal) => {
-    if (!muted) beeper.note();
+    if (!sfxMuted) beeper.note();
     setCard(MESSAGES[order[petal.msgIndex]]); // shuffled order, new every visit
     setOpened((n) => n + 1);
     setPetals((p) => p.filter((x) => x.id !== petal.id));
@@ -1213,7 +1225,7 @@ export default function PinkLilyThriftShop() {
       <div className="plg-floor" />
       <Shelf />
       <Decor />
-      <MeWaving muted={muted} beeper={beeper} />
+      <MeWaving muted={sfxMuted} beeper={beeper} />
       {/* your board, parked right next to you */}
       <div className="plg-skate">
         <Sprite map={SKATE_MAP} palette={SKATE_PALETTE} scale={5} />
@@ -1221,7 +1233,7 @@ export default function PinkLilyThriftShop() {
 
       {/* Window (sized via CSS); sill sits just below it */}
       <div className="plg-window">
-        <WindowScene muted={muted} beeper={beeper} />
+        <WindowScene muted={sfxMuted} beeper={beeper} />
       </div>
       <div className="plg-sill" style={{ top: "calc(9% + min(46vh, 300px) + 10px)" }} />
 
@@ -1237,8 +1249,8 @@ export default function PinkLilyThriftShop() {
       >
         <Sprite map={JOINT_MAP} palette={JOINT_PALETTE} scale={3} />
         <div className="plg-smoke" style={{ left: -4, top: -8, "--sd": "0s" }} />
-        <div className="plg-smoke" style={{ left: 0, top: -8, "--sd": ".9s" }} />
-        <div className="plg-smoke" style={{ left: -7, top: -8, "--sd": "1.7s" }} />
+        <div className="plg-smoke plg-smoke-extra" style={{ left: 0, top: -8, "--sd": ".9s" }} />
+        <div className="plg-smoke plg-smoke-extra" style={{ left: -7, top: -8, "--sd": "1.7s" }} />
       </div>
 
       {/* Pot + plant on the sill */}
@@ -1290,10 +1302,10 @@ export default function PinkLilyThriftShop() {
       {phase === "shop" && stage === 3 && !allRead && (
         <div className="plg-hud">✿ {opened}/{total}</div>
       )}
-      <button className="plg-mute" onClick={() => setMuted((m) => !m)} aria-pressed={!muted}>
-        {muted ? "♪ LISTEN ME!" : "♪ SHH..."}
+      <button className="plg-mute" onClick={() => setMusicMuted((m) => !m)} aria-pressed={!musicMuted}>
+        {musicMuted ? "♪ LISTEN ME!" : "♪ SHH..."}
       </button>
-      {!muted && <NowPlaying />}
+      {!musicMuted && <NowPlaying />}
 
       {/* ending: be gentle → pause → happy birthday + confetti */}
       {allRead && !card && <EndSequence />}
